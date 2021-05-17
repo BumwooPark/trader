@@ -17,6 +17,7 @@ package market
 import "github.com/gobenpark/trader/container"
 
 type Market struct {
-	Code string
-	Tick chan container.Tick
+	Code             string
+	Tick             chan container.Tick
+	CompressionChans []<-chan container.Candle
 }

@@ -209,7 +209,16 @@ Done:
 	return nil
 }
 
+//FIXME: need test
 func (c *Cerebro) marketProcess(market *market.Market) {
+
+	var tick <-chan container.Tick = market.Tick
+	for _, i := range c.compress {
+		var t2 <-chan container.Tick
+		tick, t2 = pkg.Tee(c.Ctx, tick)
+		market.CompressionChans = append(market.CompressionChans, Compression(t2, i.level, i.LeftEdge))
+	}
+
 	go func() {
 	Done:
 		for {
@@ -217,7 +226,6 @@ func (c *Cerebro) marketProcess(market *market.Market) {
 			case <-c.Ctx.Done():
 				break Done
 			case tk := <-market.Tick:
-
 			}
 		}
 	}()

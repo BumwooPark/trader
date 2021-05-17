@@ -112,14 +112,6 @@ func TestNewCerebro(t *testing.T) {
 			},
 		},
 		{
-			"resample",
-			NewCerebro(),
-			func(c *Cerebro, t *testing.T) {
-				WithResample("KRW", 3*time.Minute, true)(c)
-				assert.Equal(t, 3*time.Minute, c.compress["KRW"][0].level)
-			},
-		},
-		{
 			"cerebro order channel exist",
 			NewCerebro(),
 			func(c *Cerebro, t *testing.T) {
@@ -179,52 +171,14 @@ func TestNewCerebro(t *testing.T) {
 			},
 		},
 		{
-			"compression confirm",
+			"marketProcess",
 			func() *Cerebro {
+
 				s := SampleStore{}
-				c := NewCerebro(
-					WithStore(s),
-					WithResample("test1", time.Minute*3, true),
-				)
-				c.createContainer()
-				return c
-			}(),
-			func(c *Cerebro, t *testing.T) {
-				t.Log(c.compress)
-				assert.Len(t, c.compress, 1)
+				c := NewCerebro()
 			},
-		},
-		{
-			"cerebro load with compression",
-			func() *Cerebro {
-				s := SampleStore{}
-				c := NewCerebro(
-					WithStore(s),
-					WithResample("test1", time.Minute*3, true),
-					WithPreload(true),
-				)
-				c.createContainer()
-				return c
-			}(),
 			func(c *Cerebro, t *testing.T) {
-				err := c.load()
-				assert.NoError(t, err)
-			},
-		},
-		{
-			"cerebro load live data",
-			func() *Cerebro {
-				s := SampleStore{}
-				c := NewCerebro(
-					WithStore(s),
-					WithResample("test1", time.Minute*3, true),
-				)
-				c.createContainer()
-				return c
-			}(),
-			func(c *Cerebro, t *testing.T) {
-				err := c.load()
-				assert.NoError(t, err)
+
 			},
 		},
 	}
