@@ -18,19 +18,19 @@ func (s *Bighands) Next(broker *broker.Broker, container container.Container) {
 	rsi := indicators.NewRsi(14)
 	rsi.Calculate(container)
 	fmt.Println(rsi.Get()[0])
-
-	fmt.Println(broker.GetCash())
-
-	obv := indicators.NewObv()
-
-	obv.Calculate(container)
-	fmt.Println(obv.Get()[0])
-	fmt.Println(container.Code())
-
-	sma := indicators.NewSma(20)
-	sma.Calculate(container)
-	fmt.Println(sma.Get()[0])
-	fmt.Println(container.Code())
+	//
+	//fmt.Println(broker.GetCash())
+	//
+	//obv := indicators.NewObv()
+	//
+	//obv.Calculate(container)
+	//fmt.Println(obv.Get()[0])
+	//fmt.Println(container.Code())
+	//
+	//sma := indicators.NewSma(20)
+	//sma.Calculate(container)
+	//fmt.Println(sma.Get()[0])
+	//fmt.Println(container.Code())
 }
 
 func (s *Bighands) NotifyOrder(o *order.Order) {

@@ -49,22 +49,16 @@ func WithStrategy(s ...strategy.Strategy) Option {
 	}
 }
 
-func WithStore(s store.Store, initCodes ...string) Option {
+func WithStore(s store.Store) Option {
 	return func(c *Cerebro) {
 		c.store = s
-		c.codes = initCodes
 	}
 }
-
-func WithLive(isLive bool) Option {
+func WithResample(level []time.Duration, leftEdge bool) Option {
 	return func(c *Cerebro) {
-		c.isLive = isLive
-	}
-}
-
-func WithResample(code string, level time.Duration, leftEdge bool) Option {
-	return func(c *Cerebro) {
-		c.compress[code] = append(c.compress[code], CompressInfo{level: level, LeftEdge: leftEdge})
+		for _, i := range level {
+			c.compress = append(c.compress, CompressInfo{level: i, LeftEdge: leftEdge})
+		}
 	}
 }
 

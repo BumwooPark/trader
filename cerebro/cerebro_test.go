@@ -98,13 +98,6 @@ func TestNewCerebro(t *testing.T) {
 			},
 		},
 		{
-			"live true",
-			NewCerebro(WithLive(true)),
-			func(c *Cerebro, t *testing.T) {
-				assert.True(t, c.isLive)
-			},
-		},
-		{
 			"live false",
 			NewCerebro(),
 			func(c *Cerebro, t *testing.T) {
@@ -166,7 +159,7 @@ func TestNewCerebro(t *testing.T) {
 			"container exist",
 			func() *Cerebro {
 				s := SampleStore{}
-				c := NewCerebro(WithStore(s, "test1", "test2"))
+				c := NewCerebro(WithStore(s))
 				c.createContainer()
 				return c
 			}(),
@@ -180,7 +173,7 @@ func TestNewCerebro(t *testing.T) {
 			func() *Cerebro {
 				s := SampleStore{}
 				c := NewCerebro(
-					WithStore(s, "test1", "test2"),
+					WithStore(s),
 					WithPreload(true),
 				)
 				c.createContainer()
@@ -197,7 +190,7 @@ func TestNewCerebro(t *testing.T) {
 			func() *Cerebro {
 				s := SampleStore{}
 				c := NewCerebro(
-					WithStore(s, "test1", "test2"),
+					WithStore(s),
 					WithResample("test1", time.Minute*3, true),
 				)
 				c.createContainer()
@@ -213,7 +206,7 @@ func TestNewCerebro(t *testing.T) {
 			func() *Cerebro {
 				s := SampleStore{}
 				c := NewCerebro(
-					WithStore(s, "test1", "test2"),
+					WithStore(s),
 					WithResample("test1", time.Minute*3, true),
 					WithPreload(true),
 				)
@@ -230,9 +223,8 @@ func TestNewCerebro(t *testing.T) {
 			func() *Cerebro {
 				s := SampleStore{}
 				c := NewCerebro(
-					WithStore(s, "test1", "test2"),
+					WithStore(s),
 					WithResample("test1", time.Minute*3, true),
-					WithLive(true),
 				)
 				c.createContainer()
 				return c

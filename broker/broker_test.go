@@ -1,10 +1,12 @@
 package broker
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
 
+	"github.com/gobenpark/trader/event"
 	mock_event "github.com/gobenpark/trader/event/mock"
 	"github.com/gobenpark/trader/order"
 	"github.com/gobenpark/trader/position"
@@ -196,4 +198,19 @@ func TestBroker_SetCash(t *testing.T) {
 
 	b.SetCash(20)
 	assert.Equal(t, int64(20), b.Cash)
+}
+
+func TestBroker_Listen(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	store := mock_store.NewMockStore(ctrl)
+	store.EXPECT().Order(gomock.Any()).Return(nil)
+	b := NewBroker()
+	b.Store = store
+	engine := event.NewEventEngine()
+	engine.Start(context.TODO())
+	b.eventEngine = engine
+
+	engine.Register <- b
+	b.Buy("BTC", 10, 20, order.Limit)
+	time.Sleep(1 * time.Second)
 }
