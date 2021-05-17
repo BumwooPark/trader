@@ -210,30 +210,24 @@ Done:
 }
 
 func (c *Cerebro) marketProcess(market *market.Market) {
-	t1, t2 := pkg.Tee(c.Ctx, market.Tick)
+	go func() {
+	Done:
+		for {
+			select {
+			case <-c.Ctx.Done():
+				break Done
+			case tk := <-market.Tick:
 
-	for _, i := range c.compress {
-		pkg.Tee(c.Ctx, t2)
-		Compression(t1, i.level, i.LeftEdge)
-	}
+			}
+		}
+	}()
+
 }
 
 // registerEvent is resiter event listener
 func (c *Cerebro) registerEvent() {
 	c.eventEngine.Register <- c.strategyEngine
 	c.eventEngine.Register <- c.broker
-}
-
-func (c *Cerebro) createContainer() {
-	for _, i := range c.codes {
-		c.containers = append(c.containers, container.NewDataContainer(container.Info{Code: i, CompressionLevel: time.Second * 0}))
-		for _, j := range c.compress[i] {
-			c.containers = append(c.containers, container.NewDataContainer(container.Info{
-				Code:             i,
-				CompressionLevel: j.level,
-			}))
-		}
-	}
 }
 
 //Start run cerebro

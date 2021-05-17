@@ -98,13 +98,6 @@ func TestNewCerebro(t *testing.T) {
 			},
 		},
 		{
-			"live false",
-			NewCerebro(),
-			func(c *Cerebro, t *testing.T) {
-				assert.False(t, c.isLive)
-			},
-		},
-		{
 			"preload false",
 			NewCerebro(),
 			func(c *Cerebro, t *testing.T) {
