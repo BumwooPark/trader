@@ -17,6 +17,7 @@ package cerebro
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -178,33 +179,33 @@ Done:
 			break Done
 		}
 	}
-
-	for _, com := range c.compress[i] {
-		if con := c.getContainer(i, com.level); con != nil {
-			go func(t <-chan container.Tick, con container.Container, level time.Duration, isLeftEdge bool) {
-				com, oth := pkg.Tee(c.Ctx, t)
-
-				go func(ch <-chan container.Tick) {
-					for o := range ch {
-						if c.o != nil {
-							c.o.Next(o)
-						}
-					}
-				}(oth)
-
-				for j := range Compression(com, level, isLeftEdge) {
-					con.Add(j)
-					select {
-					case <-c.Ctx.Done():
-						break
-					default:
-						c.dataCh <- con
-						c.chart.Input <- con
-					}
-				}
-			}(tick, con, com.level, com.LeftEdge)
-		}
-	}
+	//
+	//for _, com := range c.compress[i] {
+	//	if con := c.getContainer(i, com.level); con != nil {
+	//		go func(t <-chan container.Tick, con container.Container, level time.Duration, isLeftEdge bool) {
+	//			com, oth := pkg.Tee(c.Ctx, t)
+	//
+	//			go func(ch <-chan container.Tick) {
+	//				for o := range ch {
+	//					if c.o != nil {
+	//						c.o.Next(o)
+	//					}
+	//				}
+	//			}(oth)
+	//
+	//			for j := range Compression(com, level, isLeftEdge) {
+	//				con.Add(j)
+	//				select {
+	//				case <-c.Ctx.Done():
+	//					break
+	//				default:
+	//					c.dataCh <- con
+	//					c.chart.Input <- con
+	//				}
+	//			}
+	//		}(tick, con, com.level, com.LeftEdge)
+	//	}
+	//}
 
 	return nil
 }
@@ -226,6 +227,7 @@ func (c *Cerebro) marketProcess(market *market.Market) {
 			case <-c.Ctx.Done():
 				break Done
 			case tk := <-market.Tick:
+				fmt.Println(tk)
 			}
 		}
 	}()

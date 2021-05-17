@@ -15,7 +15,7 @@ import (
 type Store interface {
 	Order(o *order.Order) error
 	Cancel(id string) error
-	LoadHistory(ctx context.Context, code string, d time.Duration) ([]container.Candle, error)
+	LoadHistory(ctx context.Context, d time.Duration) ([]container.Candle, error)
 	LoadTick(ctx context.Context) (<-chan container.Tick, error)
 	Uid() string
 	Cash() int64

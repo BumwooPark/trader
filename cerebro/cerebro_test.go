@@ -22,6 +22,7 @@ import (
 
 	"github.com/gobenpark/trader/container"
 	"github.com/gobenpark/trader/event"
+	"github.com/gobenpark/trader/market"
 	"github.com/gobenpark/trader/order"
 	"github.com/gobenpark/trader/position"
 	"github.com/stretchr/testify/assert"
@@ -38,11 +39,11 @@ func (s SampleStore) Cancel(id string) error {
 	panic("implement me")
 }
 
-func (s SampleStore) LoadHistory(ctx context.Context, code string, d time.Duration) ([]container.Candle, error) {
+func (s SampleStore) LoadHistory(ctx context.Context, d time.Duration) ([]container.Candle, error) {
 	return []container.Candle{}, nil
 }
 
-func (s SampleStore) LoadTick(ctx context.Context, code string) (<-chan container.Tick, error) {
+func (s SampleStore) LoadTick(ctx context.Context) (<-chan container.Tick, error) {
 	ch := make(chan container.Tick, 5)
 	go func() {
 		defer close(ch)
@@ -141,43 +142,40 @@ func TestNewCerebro(t *testing.T) {
 			},
 		},
 		{
-			"container exist",
-			func() *Cerebro {
-				s := SampleStore{}
-				c := NewCerebro(WithStore(s))
-				c.createContainer()
-				return c
-			}(),
-			func(c *Cerebro, t *testing.T) {
-				con := c.getContainer("test1", time.Minute*0)
-				assert.NotNil(t, con)
-			},
-		},
-		{
-			"cerebro load",
-			func() *Cerebro {
-				s := SampleStore{}
-				c := NewCerebro(
-					WithStore(s),
-					WithPreload(true),
-				)
-				c.createContainer()
-
-				return c
-			}(),
-			func(c *Cerebro, t *testing.T) {
-				err := c.load()
-				assert.NoError(t, err)
-			},
-		},
-		{
 			"marketProcess",
 			func() *Cerebro {
-
 				s := SampleStore{}
-				c := NewCerebro()
-			},
+
+				c := NewCerebro(
+					WithStore(s),
+					WithResample([]time.Duration{3 * time.Minute, 1 * time.Minute}, true),
+				)
+				return c
+			}(),
 			func(c *Cerebro, t *testing.T) {
+				t.Parallel()
+				ch := make(chan container.Tick, 1)
+
+				go func() {
+					for i := 0; i < 5; i++ {
+						ch <- container.Tick{
+							Code:   "test-code",
+							AskBid: "bid",
+							Date:   time.Now(),
+							Price:  1000,
+							Volume: 10,
+						}
+						time.Sleep(3 * time.Millisecond)
+					}
+				}()
+
+				mk := &market.Market{
+					Code:             "test-code",
+					Tick:             ch,
+					CompressionChans: nil,
+				}
+				c.marketProcess(mk)
+				time.Sleep(2 * time.Second)
 
 			},
 		},

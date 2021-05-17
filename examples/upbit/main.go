@@ -21,10 +21,9 @@ func main() {
 	smart := &Bighands{}
 
 	cb := cerebro.NewCerebro(
-		cerebro.WithStore(upbit, "KRW-XRP", "KRW-BTC"),
+		cerebro.WithStore(upbit, "KRW-XRP"),
 		cerebro.WithStrategy(smart),
-		cerebro.WithResample("KRW-XRP", time.Minute*3, true),
-		cerebro.WithResample("KRW-BTC", time.Minute*3, true),
+		cerebro.WithResample("KRW-XRP", time.Minute, true),
 		cerebro.WithLive(true),
 		cerebro.WithPreload(true),
 	)

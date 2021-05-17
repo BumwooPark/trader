@@ -23,15 +23,16 @@ type store struct {
 	uid       string
 	cli       stock.StockClient
 	orderList map[string]bool
+	isTest    bool
 }
 
-func NewStore(name string) *store {
+func NewStore(name string, isTest bool) *store {
 	cli, err := stock.NewSocketClient(context.Background(), "localhost:50051")
 	if err != nil {
 		panic(err)
 	}
 
-	return &store{name, uuid.NewV4().String(), cli, map[string]bool{}}
+	return &store{name, uuid.NewV4().String(), cli, map[string]bool{}, isTest}
 }
 
 func (s *store) LoadHistory(ctx context.Context, code string, du time.Duration) ([]container.Candle, error) {
@@ -101,36 +102,41 @@ func (s *store) LoadTick(ctx context.Context, code string) (<-chan container.Tic
 func (s *store) Order(o *order.Order) error {
 	switch o.OType {
 	case order.Buy:
-		_, err := s.cli.Buy(context.Background(), &stock.BuyRequest{
-			Code:       o.Code,
-			Otype:      stock.OrderType_LimitOrder,
-			Volume:     float64(o.Size),
-			Price:      o.Price,
-			Identifier: o.UUID,
-		})
-		if err != nil {
-			return err
+		if !s.isTest {
+			_, err := s.cli.Buy(context.Background(), &stock.BuyRequest{
+				Code:       o.Code,
+				Otype:      stock.OrderType_LimitOrder,
+				Volume:     float64(o.Size),
+				Price:      o.Price,
+				Identifier: o.UUID,
+			})
+			if err != nil {
+				return err
+			}
 		}
 	case order.Sell:
-		_, err := s.cli.Sell(context.Background(), &stock.SellRequest{
-			Code:       o.Code,
-			Otype:      stock.OrderType_LimitOrder,
-			Volume:     float64(o.Size),
-			Price:      o.Price,
-			Identifier: o.UUID,
-		})
-		if err != nil {
-			return err
+		if !s.isTest {
+			_, err := s.cli.Sell(context.Background(), &stock.SellRequest{
+				Code:       o.Code,
+				Otype:      stock.OrderType_LimitOrder,
+				Volume:     float64(o.Size),
+				Price:      o.Price,
+				Identifier: o.UUID,
+			})
+			if err != nil {
+				return err
+			}
 		}
 	}
-
 	s.orderList[o.UUID] = true
 	return nil
 }
 
 func (s *store) Cancel(id string) error {
-	if _, err := s.cli.CancelOrder(context.Background(), &stock.CancelOrderRequest{Id: id}); err != nil {
-		return err
+	if !s.isTest {
+		if _, err := s.cli.CancelOrder(context.Background(), &stock.CancelOrderRequest{Id: id}); err != nil {
+			return err
+		}
 	}
 	s.orderList[id] = false
 
