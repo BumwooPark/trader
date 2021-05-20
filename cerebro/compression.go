@@ -43,7 +43,9 @@ func Compression(tick <-chan container.Tick, level time.Duration, leftEdge bool)
 	ch := make(chan container.Candle, 1)
 	go func() {
 		defer close(ch)
-		c := container.Candle{}
+		c := container.Candle{
+			CompLevel: level,
+		}
 		for t := range tick {
 			if c.Date.Equal(time.Time{}) {
 				c.Date = compressionDate(t.Date)
@@ -66,7 +68,9 @@ func Compression(tick <-chan container.Tick, level time.Duration, leftEdge bool)
 				}
 			} else {
 				ch <- c
-				c = container.Candle{}
+				c = container.Candle{
+					CompLevel: level,
+				}
 			}
 		}
 	}()

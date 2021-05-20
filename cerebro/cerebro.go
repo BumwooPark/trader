@@ -139,6 +139,14 @@ func (c *Cerebro) orderEventRoutine() {
 //load initializing data from injected store interface
 func (c *Cerebro) load() error {
 	// getting live trading data like tick data
+	globalch := make(chan container.Candle)
+
+	go func() {
+		for i := range globalch {
+			fmt.Println(i)
+		}
+	}()
+
 	c.Logger.Info("start load live data")
 	if c.store == nil {
 		return error2.ErrStoreNotExists
@@ -156,10 +164,16 @@ func (c *Cerebro) load() error {
 		return err
 	}
 
+	register := make(chan string, 1)
+	defer close(register)
+
 Done:
 	for {
 		select {
-		case tk := <-tick:
+		case tk, ok := <-tick:
+			if !ok {
+				break Done
+			}
 			if mk, ok := c.markets[tk.Code]; ok {
 				select {
 				case mk.Tick <- tk:
@@ -167,71 +181,44 @@ Done:
 					break Done
 				}
 			} else {
-				mkt := &market.Market{
-					Code: tk.Code,
-					Tick: make(chan container.Tick, 1),
-				}
-				mkt.Tick <- tk
-				c.markets[tk.Code] = mkt
-				c.marketProcess(mkt)
+				register <- tk.Code
 			}
-		case <-c.Ctx.Done():
-			break Done
+		case code := <-register:
+			mk := market.Market{
+				Code: code,
+				Tick: make(chan container.Tick),
+			}
+
+			go func(m *market.Market) {
+				tics := []chan container.Tick{}
+				for _, i := range c.compress {
+					tk := make(chan container.Tick)
+					tics = append(tics, tk)
+					m.CompressionChans = append(m.CompressionChans, Compression(tk, i.level, i.LeftEdge))
+				}
+
+				for _, ch := range m.CompressionChans {
+					go func(cha <-chan container.Candle) {
+						for i := range cha {
+							globalch <- i
+						}
+					}(ch)
+				}
+
+				go func() {
+					for i := range m.Tick {
+						for _, j := range tics {
+							j <- i
+						}
+					}
+				}()
+
+			}(&mk)
+			c.markets[code] = &mk
 		}
 	}
-	//
-	//for _, com := range c.compress[i] {
-	//	if con := c.getContainer(i, com.level); con != nil {
-	//		go func(t <-chan container.Tick, con container.Container, level time.Duration, isLeftEdge bool) {
-	//			com, oth := pkg.Tee(c.Ctx, t)
-	//
-	//			go func(ch <-chan container.Tick) {
-	//				for o := range ch {
-	//					if c.o != nil {
-	//						c.o.Next(o)
-	//					}
-	//				}
-	//			}(oth)
-	//
-	//			for j := range Compression(com, level, isLeftEdge) {
-	//				con.Add(j)
-	//				select {
-	//				case <-c.Ctx.Done():
-	//					break
-	//				default:
-	//					c.dataCh <- con
-	//					c.chart.Input <- con
-	//				}
-	//			}
-	//		}(tick, con, com.level, com.LeftEdge)
-	//	}
-	//}
 
 	return nil
-}
-
-//FIXME: need test
-func (c *Cerebro) marketProcess(market *market.Market) {
-
-	var tick <-chan container.Tick = market.Tick
-	for _, i := range c.compress {
-		var t2 <-chan container.Tick
-		tick, t2 = pkg.Tee(c.Ctx, tick)
-		market.CompressionChans = append(market.CompressionChans, Compression(t2, i.level, i.LeftEdge))
-	}
-
-	go func() {
-	Done:
-		for {
-			select {
-			case <-c.Ctx.Done():
-				break Done
-			case tk := <-market.Tick:
-				fmt.Println(tk)
-			}
-		}
-	}()
-
 }
 
 // registerEvent is resiter event listener

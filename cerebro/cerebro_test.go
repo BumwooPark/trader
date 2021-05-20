@@ -17,12 +17,12 @@ package cerebro
 
 import (
 	"context"
+	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/gobenpark/trader/container"
 	"github.com/gobenpark/trader/event"
-	"github.com/gobenpark/trader/market"
 	"github.com/gobenpark/trader/order"
 	"github.com/gobenpark/trader/position"
 	"github.com/stretchr/testify/assert"
@@ -44,17 +44,18 @@ func (s SampleStore) LoadHistory(ctx context.Context, d time.Duration) ([]contai
 }
 
 func (s SampleStore) LoadTick(ctx context.Context) (<-chan container.Tick, error) {
-	ch := make(chan container.Tick, 5)
+	ch := make(chan container.Tick)
+	data := []string{"code1", "code2", "code3"}
 	go func() {
 		defer close(ch)
-		for i := 0; i < 10; i++ {
-			time.Sleep(time.Millisecond * 5)
+		for {
+			time.Sleep(time.Microsecond * time.Duration(rand.Intn(10)))
 			ch <- container.Tick{
-				Code:   "test1",
+				Code:   data[rand.Intn(3)],
 				AskBid: "ASK",
 				Date:   time.Now(),
-				Price:  float64(i),
-				Volume: float64(i),
+				Price:  float64(rand.Intn(1000000)),
+				Volume: float64(rand.Int63n(10000000)),
 			}
 		}
 	}()
@@ -148,33 +149,15 @@ func TestNewCerebro(t *testing.T) {
 
 				c := NewCerebro(
 					WithStore(s),
-					WithResample([]time.Duration{3 * time.Minute, 1 * time.Minute}, true),
+					WithResample([]time.Duration{3 * time.Minute, 1 * time.Minute, 3 * time.Second}, true),
 				)
 				return c
 			}(),
 			func(c *Cerebro, t *testing.T) {
 				t.Parallel()
-				ch := make(chan container.Tick, 1)
 
-				go func() {
-					for i := 0; i < 5; i++ {
-						ch <- container.Tick{
-							Code:   "test-code",
-							AskBid: "bid",
-							Date:   time.Now(),
-							Price:  1000,
-							Volume: 10,
-						}
-						time.Sleep(3 * time.Millisecond)
-					}
-				}()
+				c.load()
 
-				mk := &market.Market{
-					Code:             "test-code",
-					Tick:             ch,
-					CompressionChans: nil,
-				}
-				c.marketProcess(mk)
 				time.Sleep(2 * time.Second)
 
 			},

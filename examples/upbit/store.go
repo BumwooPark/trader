@@ -35,8 +35,8 @@ func NewStore(name string, isTest bool) *store {
 	return &store{name, uuid.NewV4().String(), cli, map[string]bool{}, isTest}
 }
 
-func (s *store) LoadHistory(ctx context.Context, code string, du time.Duration) ([]container.Candle, error) {
-
+func (s *store) LoadHistory(ctx context.Context, du time.Duration) ([]container.Candle, error) {
+	code := "KRW-BTC"
 	r, err := s.cli.Chart(context.Background(), &stock.ChartRequest{
 		Code: code,
 		To:   nil,
@@ -64,10 +64,10 @@ func (s *store) LoadHistory(ctx context.Context, code string, du time.Duration) 
 	return d, nil
 }
 
-func (s *store) LoadTick(ctx context.Context, code string) (<-chan container.Tick, error) {
+func (s *store) LoadTick(ctx context.Context) (<-chan container.Tick, error) {
 	ch := make(chan container.Tick, 1)
 
-	r, err := s.cli.TickStream(ctx, &stock.TickRequest{Codes: code})
+	r, err := s.cli.TickStream(ctx, &stock.TickRequest{Codes: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (s *store) LoadTick(ctx context.Context, code string) (<-chan container.Tic
 					log.Err(err).Send()
 				}
 				tch <- container.Tick{
-					Code:   code,
+					Code:   "",
 					Date:   msg.GetDate().AsTime(),
 					Price:  msg.GetPrice(),
 					Volume: msg.GetVolume(),
