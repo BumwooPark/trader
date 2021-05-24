@@ -18,14 +18,12 @@ package cerebro
 import (
 	"context"
 	"math/rand"
-	"testing"
 	"time"
 
 	"github.com/gobenpark/trader/container"
 	"github.com/gobenpark/trader/event"
 	"github.com/gobenpark/trader/order"
 	"github.com/gobenpark/trader/position"
-	"github.com/stretchr/testify/assert"
 )
 
 type SampleStore struct {
@@ -84,92 +82,4 @@ func (s SampleStore) OrderState(ctx context.Context) (<-chan event.OrderEvent, e
 
 func (s SampleStore) OrderInfo(id string) (*order.Order, error) {
 	panic("implement me")
-}
-
-func TestNewCerebro(t *testing.T) {
-	tests := []struct {
-		name    string
-		cerebro *Cerebro
-		checker func(c *Cerebro, t *testing.T)
-	}{
-		{
-			"default broker",
-			NewCerebro(),
-			func(c *Cerebro, t *testing.T) {
-				assert.NotNil(t, c.broker)
-			},
-		},
-		{
-			"preload false",
-			NewCerebro(),
-			func(c *Cerebro, t *testing.T) {
-				assert.False(t, c.preload)
-			},
-		},
-		{
-			"preload true",
-			NewCerebro(WithPreload(true)),
-			func(c *Cerebro, t *testing.T) {
-				assert.True(t, c.preload)
-			},
-		},
-		{
-			"cerebro order channel exist",
-			NewCerebro(),
-			func(c *Cerebro, t *testing.T) {
-				assert.NotNil(t, c.order)
-			},
-		},
-		{
-			"cerebro data container not exist",
-			NewCerebro(),
-			func(c *Cerebro, t *testing.T) {
-				assert.Nil(t, c.containers)
-			},
-		},
-		{
-			"cerebro strategy engine exist",
-			NewCerebro(),
-			func(c *Cerebro, t *testing.T) {
-				assert.NotNil(t, c.strategyEngine)
-			},
-		},
-		{
-			"container not exist",
-			NewCerebro(),
-			func(c *Cerebro, t *testing.T) {
-				assert.Nil(t, c.getContainer("nil", time.Second*0))
-				assert.Nil(t, c.containers)
-			},
-		},
-		{
-			"marketProcess",
-			func() *Cerebro {
-				s := SampleStore{}
-
-				c := NewCerebro(
-					WithStore(s),
-					WithResample([]time.Duration{3 * time.Minute, 1 * time.Minute, 3 * time.Second}, true),
-				)
-				return c
-			}(),
-			func(c *Cerebro, t *testing.T) {
-				t.Parallel()
-
-				c.load()
-
-				time.Sleep(2 * time.Second)
-
-			},
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			test.checker(test.cerebro, t)
-		})
-	}
-}
-
-func TestCerebro_Broker_Exist(t *testing.T) {
-	NewCerebro()
 }

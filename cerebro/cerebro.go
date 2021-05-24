@@ -21,14 +21,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/gobenpark/trader/broker"
 	"github.com/gobenpark/trader/container"
 	error2 "github.com/gobenpark/trader/error"
 	"github.com/gobenpark/trader/event"
 	"github.com/gobenpark/trader/internal/pkg"
 	"github.com/gobenpark/trader/market"
-	"github.com/gobenpark/trader/order"
 	"github.com/gobenpark/trader/store"
 	"github.com/gobenpark/trader/strategy"
 )
@@ -36,45 +34,37 @@ import (
 // Cerebro head of trading system
 // make all dependency manage
 type Cerebro struct {
-	//Broker buy, sell and manage order
-	broker *broker.Broker `validate:"required"`
+	//broker Sell/Buy and manage order
+	broker *broker.Broker
 
+	//store outter store
 	store store.Store
 
 	//Ctx cerebro global context
-	Ctx context.Context `json:"ctx" validate:"required"`
+	Ctx context.Context `json:"ctx"`
 
 	//Cancel cerebro global context cancel
-	Cancel context.CancelFunc `json:"cancel" validate:"required"`
+	Cancel context.CancelFunc `json:"cancel"`
 
 	//strategies
-	strategies []strategy.Strategy `validate:"gte=1,dive,required"`
+	strategies []strategy.Strategy
 
 	//compress compress info map for codes
 	compress []CompressInfo
 
-	markets map[string]*market.Market
+	//TODO: information manager for stock, news, etc.
+	information string
 
-	// containers list of all container
-	containers []container.Container
+	markets map[string]*market.Market
 
 	//strategy.StrategyEngine embedding property for managing user strategy
 	strategyEngine *strategy.Engine
 
 	//log in cerebro global logger
-	Logger Logger `validate:"required"`
-
-	//event channel of all event
-	order chan order.Order
+	Logger Logger
 
 	// eventEngine engine of management all event
 	eventEngine *event.Engine
-
-	// preload bool value, decide use candle history
-	preload bool
-
-	// dataCh all data container channel
-	dataCh chan container.Container
 }
 
 //NewCerebro generate new cerebro with cerebro option
@@ -86,8 +76,6 @@ func NewCerebro(opts ...Option) *Cerebro {
 		Cancel:         cancel,
 		compress:       []CompressInfo{},
 		strategyEngine: &strategy.Engine{},
-		order:          make(chan order.Order, 1),
-		dataCh:         make(chan container.Container, 1),
 		markets:        make(map[string]*market.Market),
 		eventEngine:    event.NewEventEngine(),
 		broker:         broker.NewBroker(),
@@ -119,8 +107,9 @@ func (c *Cerebro) orderEventRoutine() {
 }
 
 //load initializing data from injected store interface
-func (c *Cerebro) load() error {
+func (c *Cerebro) load() (<-chan container.Tick, error) {
 	// getting live trading data like tick data
+
 	globalch := make(chan container.Candle)
 
 	go func() {
@@ -131,7 +120,7 @@ func (c *Cerebro) load() error {
 
 	c.Logger.Info("start load live data")
 	if c.store == nil {
-		return error2.ErrStoreNotExists
+		return nil, error2.ErrStoreNotExists
 	}
 
 	var tick <-chan container.Tick
@@ -139,68 +128,75 @@ func (c *Cerebro) load() error {
 		var err error
 		tick, err = c.store.LoadTick(c.Ctx)
 		if err != nil {
+			c.Logger.Warning("try restart store loadTick...")
 			return err
 		}
 		return nil
 	}); err != nil {
-		return err
+		return nil, err
 	}
+
+	t1, t2 := pkg.Tee(c.Ctx, tick)
 
 	register := make(chan string, 1)
 	defer close(register)
 
-Done:
-	for {
-		select {
-		case tk, ok := <-tick:
-			if !ok {
-				break Done
-			}
-			if mk, ok := c.markets[tk.Code]; ok {
-				select {
-				case mk.Tick <- tk:
-				case <-c.Ctx.Done():
+	go func(ch <-chan container.Tick) {
+	Done:
+		for {
+			select {
+			// get all market tick data
+			case tk, ok := <-ch:
+				if !ok {
 					break Done
 				}
-			} else {
-				register <- tk.Code
-			}
-		case code := <-register:
-			mk := market.Market{
-				Code: code,
-				Tick: make(chan container.Tick),
-			}
-
-			go func(m *market.Market) {
-				tics := []chan container.Tick{}
-				for _, i := range c.compress {
-					tk := make(chan container.Tick)
-					tics = append(tics, tk)
-					m.CompressionChans = append(m.CompressionChans, Compression(tk, i.level, i.LeftEdge))
-				}
-
-				for _, ch := range m.CompressionChans {
-					go func(cha <-chan container.Candle) {
-						for i := range cha {
-							globalch <- i
-						}
-					}(ch)
-				}
-
-				go func() {
-					for i := range m.Tick {
-						for _, j := range tics {
-							j <- i
-						}
+				if mk, ok := c.markets[tk.Code]; ok {
+					select {
+					case mk.Tick <- tk:
+					case <-c.Ctx.Done():
+						break Done
 					}
-				}()
+				} else {
+					register <- tk.Code
+				}
 
-			}(&mk)
-			c.markets[code] = &mk
+			case code := <-register:
+				mk := market.Market{
+					Code: code,
+					Tick: make(chan container.Tick),
+				}
+
+				go func(m *market.Market) {
+					tics := []chan container.Tick{}
+					for _, i := range c.compress {
+						tk := make(chan container.Tick)
+						tics = append(tics, tk)
+						m.CompressionChans = append(m.CompressionChans, Compression(tk, i.level, i.LeftEdge))
+					}
+
+					for _, ch := range m.CompressionChans {
+						go func(cha <-chan container.Candle) {
+							for i := range cha {
+								globalch <- i
+							}
+						}(ch)
+					}
+
+					go func() {
+						for i := range m.Tick {
+							for _, j := range tics {
+								j <- i
+							}
+						}
+					}()
+
+				}(&mk)
+				c.markets[code] = &mk
+			}
 		}
-	}
+	}(t1)
 
-	return nil
+	return t2, nil
 }
 
 // registerEvent is resiter event listener
@@ -217,22 +213,12 @@ func (c *Cerebro) Start() error {
 	done := make(chan os.Signal)
 	signal.Notify(done, syscall.SIGTERM)
 
-	validate := validator.New()
-	if err := validate.Struct(c); err != nil {
-		c.Logger.Error(err)
-		return err
-	}
-
 	c.eventEngine.Start(c.Ctx)
 	c.registerEvent()
 	c.broker.Store = c.store
 	c.strategyEngine.Broker = c.broker
-	c.strategyEngine.Start(c.Ctx, c.dataCh)
 
 	c.orderEventRoutine()
-	if err := c.load(); err != nil {
-		return err
-	}
 
 	select {
 	case <-c.Ctx.Done():
