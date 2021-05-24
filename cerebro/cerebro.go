@@ -1,18 +1,17 @@
 /*
- *  Copyright 2021 The Trader Authors
+ *                     GNU GENERAL PUBLIC LICENSE
+ *                        Version 3, 29 June 2007
  *
- *  Licensed under the GNU General Public License v3.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ *  Everyone is permitted to copy and distribute verbatim copies
+ *  of this license document, but changing it is not allowed.
  *
- *      <https:fsf.org/>
+ *                             Preamble
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ *   The GNU General Public License is a free, copyleft license for
+ * software and other kinds of works.
  */
+
 package cerebro
 
 import (
@@ -21,17 +20,14 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gobenpark/trader/broker"
-	"github.com/gobenpark/trader/chart"
 	"github.com/gobenpark/trader/container"
 	error2 "github.com/gobenpark/trader/error"
 	"github.com/gobenpark/trader/event"
 	"github.com/gobenpark/trader/internal/pkg"
 	"github.com/gobenpark/trader/market"
-	"github.com/gobenpark/trader/observer"
 	"github.com/gobenpark/trader/order"
 	"github.com/gobenpark/trader/store"
 	"github.com/gobenpark/trader/strategy"
@@ -79,10 +75,6 @@ type Cerebro struct {
 
 	// dataCh all data container channel
 	dataCh chan container.Container
-
-	o observer.Observer
-
-	chart *chart.TraderChart
 }
 
 //NewCerebro generate new cerebro with cerebro option
@@ -99,7 +91,6 @@ func NewCerebro(opts ...Option) *Cerebro {
 		markets:        make(map[string]*market.Market),
 		eventEngine:    event.NewEventEngine(),
 		broker:         broker.NewBroker(),
-		chart:          chart.NewTraderChart(),
 	}
 
 	for _, opt := range opts {
@@ -110,15 +101,6 @@ func NewCerebro(opts ...Option) *Cerebro {
 	}
 
 	return c
-}
-
-func (c *Cerebro) getContainer(code string, level time.Duration) container.Container {
-	for k, v := range c.containers {
-		if v.Code() == code && v.Level() == level {
-			return c.containers[k]
-		}
-	}
-	return nil
 }
 
 // orderEventRoutine is stream of order state
@@ -241,15 +223,11 @@ func (c *Cerebro) Start() error {
 		return err
 	}
 
-	c.chart.Start()
-
 	c.eventEngine.Start(c.Ctx)
 	c.registerEvent()
 	c.broker.Store = c.store
 	c.strategyEngine.Broker = c.broker
 	c.strategyEngine.Start(c.Ctx, c.dataCh)
-
-	c.broker.SetEventBroadCaster(c.eventEngine)
 
 	c.orderEventRoutine()
 	if err := c.load(); err != nil {

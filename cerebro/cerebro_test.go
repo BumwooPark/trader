@@ -170,9 +170,6 @@ func TestNewCerebro(t *testing.T) {
 	}
 }
 
-func TestCerebro_Stop(t *testing.T) {
-	c := NewCerebro()
-	err := c.Stop()
-	assert.NoError(t, err)
-	assert.Equal(t, "context canceled", c.Ctx.Err().Error())
+func TestCerebro_Broker_Exist(t *testing.T) {
+	NewCerebro()
 }

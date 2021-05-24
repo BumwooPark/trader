@@ -1,43 +1,37 @@
 /*
- *  Copyright 2021 The Trader Authors
+ *                     GNU GENERAL PUBLIC LICENSE
+ *                        Version 3, 29 June 2007
  *
- *  Licensed under the GNU General Public License v3.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ *  Everyone is permitted to copy and distribute verbatim copies
+ *  of this license document, but changing it is not allowed.
  *
- *      <https:fsf.org/>
+ *                             Preamble
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ *   The GNU General Public License is a free, copyleft license for
+ * software and other kinds of works.
  */
+
 package broker
 
 import (
-	"fmt"
+	"errors"
 	"sync"
-	"sync/atomic"
-	"time"
 
 	"github.com/gobenpark/trader/event"
 	"github.com/gobenpark/trader/order"
 	"github.com/gobenpark/trader/position"
 	"github.com/gobenpark/trader/store"
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 )
 
 type Broker struct {
 	sync.RWMutex
-	sync.Once
-	Cash        int64
-	Commission  float64
-	orders      map[string]*order.Order
-	mu          sync.Mutex
-	eventEngine event.Broadcaster
-	positions   map[string][]position.Position
-	Store       store.Store
+	Cash       int64
+	Commission float64
+	orders     map[string]*order.Order
+	positions  map[string][]position.Position
+	Store      store.Store
 }
 
 // NewBroker Init new broker with cash,commission
@@ -48,97 +42,49 @@ func NewBroker() *Broker {
 	}
 }
 
-func (b *Broker) Buy(code string, size int64, price float64, exec order.ExecType) string {
-	uid := uuid.NewV4().String()
-	o := &order.Order{
-		OType:     order.Buy,
-		Code:      code,
-		UUID:      uid,
-		Size:      size,
-		Price:     price,
-		ExecType:  exec,
-		CreatedAt: time.Now(),
+func (b *Broker) validate(o *order.Order) error {
+
+	if o.Size == 0 {
+		return errors.New("not exist order size")
 	}
-	b.orders[o.UUID] = o
-	b.Submit(o)
-	return uid
-}
-
-func (b *Broker) Sell(code string, size int64, price float64, exec order.ExecType) string {
-	uid := uuid.NewV4().String()
-	o := &order.Order{
-		Code:     code,
-		UUID:     uid,
-		OType:    order.Sell,
-		Size:     size,
-		Price:    price,
-		ExecType: exec,
+	if o.Price == 0 {
+		return errors.New("not exist order price")
 	}
-	b.orders[o.UUID] = o
-	b.Submit(o)
-	return uid
-}
-
-func (b *Broker) Cancel(uid string) {
-	if o, ok := b.orders[uid]; ok {
-		o.Cancel()
-		b.eventEngine.BroadCast(o)
-		return
-	}
-}
-
-func (b *Broker) Submit(o *order.Order) {
-	o.Submit()
-	b.eventEngine.BroadCast(o)
-
-	b.orders[o.UUID] = o
-	if err := b.Store.Order(o); err != nil {
-		o.Reject(err)
-		b.eventEngine.BroadCast(o)
-		return
+	if len(o.Code) == 0 {
+		return errors.New("not exist order code")
 	}
 
-	return
-}
+	total := float64(o.Size) * o.Price
+	total = total + (total * b.Commission)
 
-func (b *Broker) Accept(oid string) {
-	if o, ok := b.orders[oid]; ok {
-		b.positions[o.Code] = append(b.positions[o.Code], position.Position{
-			Code:      o.Code,
-			Size:      o.Size,
-			Price:     o.Price,
-			CreatedAt: o.CreatedAt,
-		})
-		o.Complete()
-		b.eventEngine.BroadCast(o)
-		return
-	}
-}
-
-func (b *Broker) GetPosition(code string) []position.Position {
-	b.Do(func() {
-		p := b.Store.Positions()
-		for _, i := range p {
-			b.positions[i.Code] = append(b.positions[i.Code], i)
-		}
-	})
-
-	if p, ok := b.positions[code]; ok {
-		return p
+	if float64(b.Cash) < total || total == 0 {
+		return errors.New("no have possible cash")
 	}
 	return nil
 }
 
-func (b *Broker) GetCash() int64 {
-	return b.Store.Cash()
+func (b *Broker) Order(o *order.Order) error {
+	b.Lock()
+	defer b.Unlock()
+
+	if err := b.validate(o); err != nil {
+		return err
+	}
+	if len(o.UUID) == 0 {
+		o.UUID = uuid.NewV4().String()
+	}
+	b.orders[o.UUID] = o
+	o.Submit()
+	return nil
 }
 
-func (b *Broker) SetCash(cash int64) {
-	atomic.StoreInt64(&b.Cash, cash)
-}
-
-func (b *Broker) SetEventBroadCaster(e event.Broadcaster) {
-	b.eventEngine = e
+func (b *Broker) Cancel(uid string) error {
+	o, ok := b.orders[uid]
+	if !ok {
+		return errors.New("not exist orderid in broker order list")
+	}
+	o.Cancel()
+	return nil
 }
 
 func (b *Broker) Listen(e interface{}) {
@@ -147,10 +93,8 @@ func (b *Broker) Listen(e interface{}) {
 		case "cancel":
 			b.Cancel(evt.Oid)
 		case "done":
-			b.Accept(evt.Oid)
+			//b.Accept(evt.Oid)
 		case "wait":
-			fmt.Println(b.positions)
-			fmt.Println("wait")
 		}
 	}
 }
