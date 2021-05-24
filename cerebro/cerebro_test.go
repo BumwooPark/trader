@@ -17,69 +17,46 @@ package cerebro
 
 import (
 	"context"
-	"math/rand"
+	"testing"
 	"time"
 
 	"github.com/gobenpark/trader/container"
-	"github.com/gobenpark/trader/event"
-	"github.com/gobenpark/trader/order"
-	"github.com/gobenpark/trader/position"
+	mock_store "github.com/gobenpark/trader/store/mock"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
-type SampleStore struct {
-}
+func TestCerebro_loadRealtimeData(t *testing.T) {
+	t.Parallel()
+	ctrl := gomock.NewController(t)
+	store := mock_store.NewMockStore(ctrl)
 
-func (s SampleStore) Order(o *order.Order) error {
-	panic("implement me")
-}
+	store.EXPECT().LoadTick(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) (<-chan container.Tick, error) {
+			ch := make(chan container.Tick)
+			go func() {
+				defer close(ch)
+				for i := 0; i < 5; i++ {
+					time.Sleep(time.Second)
+					ch <- container.Tick{
+						Code:   "sample",
+						AskBid: "bid",
+						Date:   time.Now(),
+						Price:  10,
+						Volume: 100,
+					}
+				}
+			}()
+			return ch, nil
+		})
 
-func (s SampleStore) Cancel(id string) error {
-	panic("implement me")
-}
+	c := NewCerebro(WithStore(store))
 
-func (s SampleStore) LoadHistory(ctx context.Context, d time.Duration) ([]container.Candle, error) {
-	return []container.Candle{}, nil
-}
-
-func (s SampleStore) LoadTick(ctx context.Context) (<-chan container.Tick, error) {
-	ch := make(chan container.Tick)
-	data := []string{"code1", "code2", "code3"}
-	go func() {
-		defer close(ch)
-		for {
-			time.Sleep(time.Microsecond * time.Duration(rand.Intn(10)))
-			ch <- container.Tick{
-				Code:   data[rand.Intn(3)],
-				AskBid: "ASK",
-				Date:   time.Now(),
-				Price:  float64(rand.Intn(1000000)),
-				Volume: float64(rand.Int63n(10000000)),
-			}
-		}
-	}()
-	return ch, nil
-}
-
-func (s SampleStore) Uid() string {
-	panic("implement me")
-}
-
-func (s SampleStore) Cash() int64 {
-	panic("implement me")
-}
-
-func (s SampleStore) Commission() float64 {
-	panic("implement me")
-}
-
-func (s SampleStore) Positions() []position.Position {
-	panic("implement me")
-}
-
-func (s SampleStore) OrderState(ctx context.Context) (<-chan event.OrderEvent, error) {
-	panic("implement me")
-}
-
-func (s SampleStore) OrderInfo(id string) (*order.Order, error) {
-	panic("implement me")
+	tick, err := c.loadRealtimeData()
+	assert.NoError(t, err)
+	count := 0
+	for range tick {
+		count += 1
+	}
+	assert.Equal(t, 5, count)
 }

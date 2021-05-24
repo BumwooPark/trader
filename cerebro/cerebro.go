@@ -16,10 +16,10 @@ package cerebro
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gobenpark/trader/broker"
 	"github.com/gobenpark/trader/container"
@@ -106,22 +106,13 @@ func (c *Cerebro) orderEventRoutine() {
 	}()
 }
 
-//load initializing data from injected store interface
-func (c *Cerebro) load() (<-chan container.Tick, error) {
-	// getting live trading data like tick data
+func (c *Cerebro) loadHistoryData() {
+	c.store.LoadHistory(c.Ctx, time.Second)
+}
 
-	globalch := make(chan container.Candle)
-
-	go func() {
-		for i := range globalch {
-			fmt.Println(i)
-		}
-	}()
-
+//loadRealtimeData
+func (c *Cerebro) loadRealtimeData() (<-chan container.Tick, error) {
 	c.Logger.Info("start load live data")
-	if c.store == nil {
-		return nil, error2.ErrStoreNotExists
-	}
 
 	var tick <-chan container.Tick
 	if err := pkg.Retry(10, func() error {
@@ -135,68 +126,7 @@ func (c *Cerebro) load() (<-chan container.Tick, error) {
 	}); err != nil {
 		return nil, err
 	}
-
-	t1, t2 := pkg.Tee(c.Ctx, tick)
-
-	register := make(chan string, 1)
-	defer close(register)
-
-	go func(ch <-chan container.Tick) {
-	Done:
-		for {
-			select {
-			// get all market tick data
-			case tk, ok := <-ch:
-				if !ok {
-					break Done
-				}
-				if mk, ok := c.markets[tk.Code]; ok {
-					select {
-					case mk.Tick <- tk:
-					case <-c.Ctx.Done():
-						break Done
-					}
-				} else {
-					register <- tk.Code
-				}
-
-			case code := <-register:
-				mk := market.Market{
-					Code: code,
-					Tick: make(chan container.Tick),
-				}
-
-				go func(m *market.Market) {
-					tics := []chan container.Tick{}
-					for _, i := range c.compress {
-						tk := make(chan container.Tick)
-						tics = append(tics, tk)
-						m.CompressionChans = append(m.CompressionChans, Compression(tk, i.level, i.LeftEdge))
-					}
-
-					for _, ch := range m.CompressionChans {
-						go func(cha <-chan container.Candle) {
-							for i := range cha {
-								globalch <- i
-							}
-						}(ch)
-					}
-
-					go func() {
-						for i := range m.Tick {
-							for _, j := range tics {
-								j <- i
-							}
-						}
-					}()
-
-				}(&mk)
-				c.markets[code] = &mk
-			}
-		}
-	}(t1)
-
-	return t2, nil
+	return tick, nil
 }
 
 // registerEvent is resiter event listener
@@ -212,6 +142,10 @@ func (c *Cerebro) registerEvent() {
 func (c *Cerebro) Start() error {
 	done := make(chan os.Signal)
 	signal.Notify(done, syscall.SIGTERM)
+
+	if c.store == nil {
+		return error2.ErrStoreNotExists
+	}
 
 	c.eventEngine.Start(c.Ctx)
 	c.registerEvent()

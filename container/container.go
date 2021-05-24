@@ -14,7 +14,6 @@
  *  limitations under the License.
  */
 
-//container package is store of tick data or candle stick data
 package container
 
 import (

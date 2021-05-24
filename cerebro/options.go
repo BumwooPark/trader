@@ -18,7 +18,6 @@ package cerebro
 import (
 	"time"
 
-	"github.com/gobenpark/trader/observer"
 	"github.com/gobenpark/trader/store"
 	"github.com/gobenpark/trader/strategy"
 )
@@ -37,11 +36,11 @@ func WithCommission(commission float64) Option {
 	}
 }
 
-func WithObserver(o observer.Observer) Option {
-	return func(c *Cerebro) {
-		c.o = o
-	}
-}
+//func WithObserver(o observer.Observer) Option {
+//	return func(c *Cerebro) {
+//		c.o = o
+//	}
+//}
 
 func WithStrategy(s ...strategy.Strategy) Option {
 	return func(c *Cerebro) {
@@ -59,11 +58,5 @@ func WithResample(level []time.Duration, leftEdge bool) Option {
 		for _, i := range level {
 			c.compress = append(c.compress, CompressInfo{level: i, LeftEdge: leftEdge})
 		}
-	}
-}
-
-func WithPreload(b bool) Option {
-	return func(c *Cerebro) {
-		c.preload = b
 	}
 }

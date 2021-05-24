@@ -67,33 +67,33 @@ func (mr *MockStoreMockRecorder) Cancel(id interface{}) *gomock.Call {
 }
 
 // LoadHistory mocks base method
-func (m *MockStore) LoadHistory(ctx context.Context, code string, d time.Duration) ([]container.Candle, error) {
+func (m *MockStore) LoadHistory(ctx context.Context, d time.Duration) ([]container.Candle, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LoadHistory", ctx, code, d)
+	ret := m.ctrl.Call(m, "LoadHistory", ctx, d)
 	ret0, _ := ret[0].([]container.Candle)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // LoadHistory indicates an expected call of LoadHistory
-func (mr *MockStoreMockRecorder) LoadHistory(ctx, code, d interface{}) *gomock.Call {
+func (mr *MockStoreMockRecorder) LoadHistory(ctx, d interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadHistory", reflect.TypeOf((*MockStore)(nil).LoadHistory), ctx, code, d)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadHistory", reflect.TypeOf((*MockStore)(nil).LoadHistory), ctx, d)
 }
 
 // LoadTick mocks base method
-func (m *MockStore) LoadTick(ctx context.Context, code string) (<-chan container.Tick, error) {
+func (m *MockStore) LoadTick(ctx context.Context) (<-chan container.Tick, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LoadTick", ctx, code)
+	ret := m.ctrl.Call(m, "LoadTick", ctx)
 	ret0, _ := ret[0].(<-chan container.Tick)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // LoadTick indicates an expected call of LoadTick
-func (mr *MockStoreMockRecorder) LoadTick(ctx, code interface{}) *gomock.Call {
+func (mr *MockStoreMockRecorder) LoadTick(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadTick", reflect.TypeOf((*MockStore)(nil).LoadTick), ctx, code)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadTick", reflect.TypeOf((*MockStore)(nil).LoadTick), ctx)
 }
 
 // Uid mocks base method
